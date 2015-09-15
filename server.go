@@ -54,7 +54,7 @@ func handleClient(client Client) {
 		// read upto 512 bytes
 		n, err := client.conn.Read(buf[0:])
 		if err != nil {
-			return
+			break
 		}
 
 		// write the n bytes read
