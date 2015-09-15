@@ -81,7 +81,7 @@ func broadcastMessage(buf [512]byte, length int, clientId int) {
 		fmt.Println("Error", err.Error())
 	}
 	for _, client := range clients {
-		if client.conn != nil && client.id != clientId {
+		if client.conn != nil {
 			fmt.Printf("Writing to client %d\n", client.id)
 			client.conn.Write(jsonResponse)
 		}
