@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 )
-
-var clients []Client
-var clientId int
 
 type Client struct {
 	id   int
@@ -19,6 +17,46 @@ type Message struct {
 	ClientId int    `json:"clientId"`
 	Message  string `json:"message"`
 }
+
+type ClientList struct {
+	mutex   sync.Mutex
+	clients []Client
+}
+
+func (c *ClientList) Add(client *Client) {
+	c.mutex.Lock()
+	c.clients = append(c.clients, *client)
+	c.mutex.Unlock()
+}
+
+func (c *ClientList) Remove(clientId int) {
+	c.mutex.Lock()
+	var index int
+	for i, client := range c.clients {
+		if client.id == clientId {
+			index = i
+			break
+		}
+	}
+	fmt.Printf("closing client %d\n", clientId)
+	c.clients = c.clients[:index+copy(c.clients[index:], c.clients[index+1:])]
+	fmt.Println("updated clients list")
+	c.mutex.Unlock()
+}
+
+func (c *ClientList) Broadcast(message []byte) {
+	c.mutex.Lock()
+	for _, client := range c.clients {
+		if client.conn != nil {
+			fmt.Printf("Writing to client %d\n", client.id)
+			client.conn.Write(message)
+		}
+	}
+	c.mutex.Unlock()
+}
+
+var clientList ClientList
+var clientId int
 
 func main() {
 
@@ -36,7 +74,7 @@ func main() {
 			continue
 		}
 		client := Client{clientId, conn}
-		clients = append(clients, client)
+		clientList.Add(&client)
 		clientId++
 
 		// run as a goroutine
@@ -60,17 +98,7 @@ func handleClient(client Client) {
 		// write the n bytes read
 		broadcastMessage(buf, n, client.id)
 	}
-	fmt.Printf("closing client %d\n", client.id)
-
-	var index int
-	for i, c := range clients {
-		if c.id == client.id {
-			index = i
-			break
-		}
-	}
-	clients = clients[:index+copy(clients[index:], clients[index+1:])]
-	fmt.Println("updated clients list")
+	clientList.Remove(client.id)
 }
 
 func broadcastMessage(buf [512]byte, length int, clientId int) {
@@ -80,12 +108,7 @@ func broadcastMessage(buf [512]byte, length int, clientId int) {
 	if err != nil {
 		fmt.Println("Error", err.Error())
 	}
-	for _, client := range clients {
-		if client.conn != nil {
-			fmt.Printf("Writing to client %d\n", client.id)
-			client.conn.Write(jsonResponse)
-		}
-	}
+	clientList.Broadcast(jsonResponse)
 }
 
 func checkError(err error) {
