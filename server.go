@@ -60,7 +60,7 @@ func handleClient(client Client) {
 		// write the n bytes read
 		broadcastMessage(buf, n, client.id)
 	}
-	fmt.Println("closing client %d", client.id)
+	fmt.Printf("closing client %d\n", client.id)
 
 	var index int
 	for i, c := range clients {
@@ -90,7 +90,7 @@ func broadcastMessage(buf [512]byte, length int, clientId int) {
 
 func checkError(err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Fatal error: %s\n", err.Error())
 		os.Exit(1)
 	}
 }
