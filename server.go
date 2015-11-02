@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -60,11 +62,17 @@ var clientId int
 
 func main() {
 
-	service := ":1201"
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", service)
-	checkError(err)
+	cert, err := tls.LoadX509KeyPair("server.pem", "server.key")
 
-	listener, err := net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		panic("Error loading X509 Key Pair")
+	}
+
+	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
+	config.Rand = rand.Reader
+
+	service := ":1201"
+	listener, err := tls.Listen("tcp", service, &config)
 	checkError(err)
 	clientId = 0
 
