@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/json"
+	_ "encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -46,10 +46,10 @@ func (c *ClientList) Remove(clientId int) {
 	c.mutex.Unlock()
 }
 
-func (c *ClientList) Broadcast(message []byte) {
+func (c *ClientList) Broadcast(message []byte, sourceClientId int) {
 	c.mutex.Lock()
 	for _, client := range c.clients {
-		if client.conn != nil {
+		if client.conn != nil && client.id != sourceClientId {
 			fmt.Printf("Writing to client %d\n", client.id)
 			client.conn.Write(message)
 		}
@@ -59,6 +59,7 @@ func (c *ClientList) Broadcast(message []byte) {
 
 var clientList ClientList
 var clientId int
+var AUTHENTICATION_KEY = "test_auth_key\n"
 
 func main() {
 
@@ -82,8 +83,6 @@ func main() {
 			continue
 		}
 		client := Client{clientId, conn}
-		clientList.Add(&client)
-		clientId++
 
 		// run as a goroutine
 		go handleClient(client)
@@ -96,6 +95,22 @@ func handleClient(client Client) {
 	defer client.conn.Close()
 
 	var buf [512]byte
+
+	n, err := client.conn.Read(buf[0:])
+	if err != nil {
+		return
+	}
+
+	auth := fmt.Sprintf("%s", buf[0:n])
+	fmt.Printf("Attempted to use key: [%s]", auth)
+	if auth != AUTHENTICATION_KEY {
+		client.conn.Close()
+		return
+	}
+
+	clientList.Add(&client)
+	clientId++
+
 	for {
 		// read upto 512 bytes
 		n, err := client.conn.Read(buf[0:])
@@ -111,12 +126,12 @@ func handleClient(client Client) {
 
 func broadcastMessage(buf [512]byte, length int, clientId int) {
 	msg := fmt.Sprintf("%s", buf[0:length])
-	message := Message{clientId, msg}
-	jsonResponse, err := json.Marshal(message)
-	if err != nil {
-		fmt.Println("Error", err.Error())
-	}
-	clientList.Broadcast(jsonResponse)
+	// message := Message{clientId, msg}
+	// jsonResponse, err := json.Marshal(message)
+	// if err != nil {
+	// 	fmt.Println("Error", err.Error())
+	// }
+	clientList.Broadcast([]byte(msg), clientId)
 }
 
 func checkError(err error) {
