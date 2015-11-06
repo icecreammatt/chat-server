@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	_ "encoding/json"
 	"fmt"
+	"github.com/sasbury/mini"
 	"net"
 	"os"
 	"sync"
@@ -59,9 +60,27 @@ func (c *ClientList) Broadcast(message []byte, sourceClientId int) {
 
 var clientList ClientList
 var clientId int
-var AUTHENTICATION_KEY = "test_auth_key\n"
+var AUTHENTICATION_KEY string
+var SERVICE string
 
 func main() {
+
+	settings, err := mini.LoadConfiguration("settings.ini")
+	if err != nil {
+		fmt.Println("Error loading settings.ini")
+		os.Exit(1)
+	}
+
+	AUTHENTICATION_KEY = settings.String("authkey", "")
+	SERVICE = settings.String("service", ":1201")
+
+	if AUTHENTICATION_KEY == "" {
+		fmt.Println("Authentication key must be set")
+		os.Exit(1)
+	}
+
+	fmt.Println("AUTHENTICATION_KEY=", AUTHENTICATION_KEY)
+	fmt.Println("SERVICE=", SERVICE)
 
 	cert, err := tls.LoadX509KeyPair("server.pem", "server.key")
 
@@ -72,8 +91,7 @@ func main() {
 	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
 	config.Rand = rand.Reader
 
-	service := ":1201"
-	listener, err := tls.Listen("tcp", service, &config)
+	listener, err := tls.Listen("tcp", SERVICE, &config)
 	checkError(err)
 	clientId = 0
 
